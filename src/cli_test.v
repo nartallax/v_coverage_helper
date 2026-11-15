@@ -2,7 +2,35 @@ module src
 
 import os
 
+const vch_env_names = ['VCH_LCOV', 'VCH_SRC', 'VCH_V_FILE_EXTENSIONS', 'VCH_OUTPUT', 'VCH_SORT',
+	'VCH_MIN_COVERAGE']
+
+// clear_vch_env unsets all VCH_* environment variables, so that parse_cli
+// tests are independent of the environment the test binary runs in, and
+// returns the previous values for restore_vch_env.
+fn clear_vch_env() map[string]string {
+	mut saved := map[string]string{}
+	for name in vch_env_names {
+		if value := os.getenv_opt(name) {
+			saved[name] = value
+			os.unsetenv(name)
+		}
+	}
+	return saved
+}
+
+// restore_vch_env restores the variables saved by clear_vch_env.
+fn restore_vch_env(saved map[string]string) {
+	for name, value in saved {
+		os.setenv(name, value, true)
+	}
+}
+
 fn test_parse_cli_defaults() ! {
+	saved_env := clear_vch_env()
+	defer {
+		restore_vch_env(saved_env)
+	}
 	cli := parse_cli(['vch', '--lcov', 'a.lcov', '--src', 'src', '--output', 'out'])!
 	assert cli.lcov == 'a.lcov'
 	assert cli.src == 'src'
@@ -12,11 +40,19 @@ fn test_parse_cli_defaults() ! {
 }
 
 fn test_parse_cli_lcov_is_optional() ! {
+	saved_env := clear_vch_env()
+	defer {
+		restore_vch_env(saved_env)
+	}
 	cli := parse_cli(['vch', '--src', 'src', '--output', 'out'])!
 	assert cli.lcov == ''
 }
 
 fn test_parse_cli_all_options() ! {
+	saved_env := clear_vch_env()
+	defer {
+		restore_vch_env(saved_env)
+	}
 	cli := parse_cli(['vch', '--lcov', 'a.lcov', '--src', 'src', '--output', 'out', '--sort',
 		'score', '--v_file_extensions', ' v , .vh '])!
 	assert cli.sort == 'score'
@@ -24,12 +60,20 @@ fn test_parse_cli_all_options() ! {
 }
 
 fn test_parse_cli_rejects_bad_sort() {
+	saved_env := clear_vch_env()
+	defer {
+		restore_vch_env(saved_env)
+	}
 	if _ := parse_cli(['vch', '--lcov', 'a', '--src', 'b', '--output', 'c', '--sort', 'nope']) {
 		panic('expected an error for an invalid --sort value')
 	}
 }
 
 fn test_parse_cli_rejects_missing_output() {
+	saved_env := clear_vch_env()
+	defer {
+		restore_vch_env(saved_env)
+	}
 	if _ := parse_cli(['vch', '--lcov', 'a', '--src', 'b']) {
 		panic('expected an error when --output is missing')
 	}
@@ -42,6 +86,10 @@ fn test_parse_extensions_normalizes() {
 }
 
 fn test_parse_cli_min_coverage() ! {
+	saved_env := clear_vch_env()
+	defer {
+		restore_vch_env(saved_env)
+	}
 	cli := parse_cli(['vch', '--src', 'src', '--output', 'out', '--min-coverage', '80.5'])!
 	assert cli.min_coverage == 80.5
 	// 0 (the default) disables the check
@@ -50,6 +98,10 @@ fn test_parse_cli_min_coverage() ! {
 }
 
 fn test_parse_cli_rejects_bad_min_coverage() {
+	saved_env := clear_vch_env()
+	defer {
+		restore_vch_env(saved_env)
+	}
 	if _ := parse_cli(['vch', '--src', 'src', '--output', 'out', '--min-coverage', '101']) {
 		panic('expected an error for a min-coverage above 100')
 	}
