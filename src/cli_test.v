@@ -1,4 +1,6 @@
-module main
+module src
+
+import os
 
 fn test_parse_cli_defaults() ! {
 	cli := parse_cli(['vch', '--lcov', 'a.lcov', '--src', 'src', '--output', 'out'])!
@@ -53,5 +55,50 @@ fn test_parse_cli_rejects_bad_min_coverage() {
 	}
 	if _ := parse_cli(['vch', '--src', 'src', '--output', 'out', '--min-coverage', '-1']) {
 		panic('expected an error for a negative min-coverage')
+	}
+}
+
+fn test_parse_cli_env_vars() ! {
+	os.setenv('VCH_LCOV', 'env.lcov', true)
+	os.setenv('VCH_SRC', 'env_src', true)
+	os.setenv('VCH_V_FILE_EXTENSIONS', '.v,.vh', true)
+	os.setenv('VCH_OUTPUT', 'env_out', true)
+	os.setenv('VCH_SORT', 'score', true)
+	os.setenv('VCH_MIN_COVERAGE', '55.5', true)
+	defer {
+		os.unsetenv('VCH_LCOV')
+		os.unsetenv('VCH_SRC')
+		os.unsetenv('VCH_V_FILE_EXTENSIONS')
+		os.unsetenv('VCH_OUTPUT')
+		os.unsetenv('VCH_SORT')
+		os.unsetenv('VCH_MIN_COVERAGE')
+	}
+
+	// no flags at all: everything comes from the environment
+	cli := parse_cli(['vch'])!
+	assert cli.lcov == 'env.lcov'
+	assert cli.src == 'env_src'
+	assert cli.v_file_extensions == ['.v', '.vh']
+	assert cli.output == 'env_out'
+	assert cli.sort == 'score'
+	assert cli.min_coverage == 55.5
+
+	// a command line option takes precedence over the environment variable
+	cli2 := parse_cli(['vch', '--src', 'flag_src'])!
+	assert cli2.src == 'flag_src'
+	assert cli2.output == 'env_out'
+}
+
+fn test_parse_cli_rejects_bad_env_min_coverage() {
+	os.setenv('VCH_SRC', 's', true)
+	os.setenv('VCH_OUTPUT', 'o', true)
+	os.setenv('VCH_MIN_COVERAGE', 'not-a-number', true)
+	defer {
+		os.unsetenv('VCH_SRC')
+		os.unsetenv('VCH_OUTPUT')
+		os.unsetenv('VCH_MIN_COVERAGE')
+	}
+	if _ := parse_cli(['vch']) {
+		panic('expected an error for a non-numeric VCH_MIN_COVERAGE')
 	}
 }

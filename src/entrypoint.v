@@ -1,8 +1,9 @@
-module main
+module src
 
 import os
 
-fn main() {
+// entrypoint is the program entry point, called by main.v in the project root.
+pub fn entrypoint() {
 	cli := parse_cli(os.args) or {
 		eprintln('error: ${err}')
 		eprintln('usage: ${app_name} --src <path> --output <path> [--lcov <path>]')
